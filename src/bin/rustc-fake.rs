@@ -7,6 +7,7 @@ fn main() {
     let rustc = env::var_os("RUSTC_REAL").unwrap();
     let mut cmd = Command::new(&rustc);
     let any_time_passes = args.iter().any(|a| a.to_str() == Some("time-passes"));
+
     if env::var_os("USE_PERF").is_some() && any_time_passes {
         cmd = Command::new("perf");
         cmd.arg("stat")
@@ -17,9 +18,19 @@ fn main() {
     }
     cmd.args(&args);
 
-    raise_priority();
-    assert!(cmd.status().expect("failed to spawn").success());
-    print_memory();
+    if any_time_passes {
+        raise_priority();
+        assert!(cmd.status().expect("failed to spawn").success());
+        print_memory();
+    } else {
+        exec(&mut cmd);
+    }
+}
+
+#[cfg(unix)]
+fn exec(cmd: &mut Command) -> ! {
+    use std::os::unix::prelude::*;
+    panic!("failed to spawn: {}", cmd.exec());
 }
 
 #[cfg(unix)]

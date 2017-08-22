@@ -16,14 +16,16 @@ fn main() {
             .arg(&rustc);
     }
     cmd.args(&args);
-    exec(&mut cmd)
+
+    raise_priority();
+    assert!(cmd.status().expect("failed to spawn").success());
+    print_memory();
 }
 
 #[cfg(unix)]
-fn exec(cmd: &mut Command) -> ! {
+fn raise_priority() {
     extern crate libc;
 
-    use std::os::unix::prelude::*;
     use std::io;
     use std::mem;
 
@@ -50,11 +52,27 @@ fn exec(cmd: &mut Command) -> ! {
             // and hope we've got elevated privileges on the actual perf bot.
         }
     }
+}
 
-    panic!("failed to spawn: {}", cmd.exec());
+#[cfg(unix)]
+fn print_memory() {
+    extern crate libc;
+
+    use std::mem;
+
+    unsafe {
+        let mut usage = mem::zeroed();
+        let r = libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage);
+        if r == 0 {
+            println!("{},,max-rss,3,100.00", usage.ru_maxrss);
+        }
+    }
 }
 
 #[cfg(windows)]
-fn exec(cmd: &mut Command) -> ! {
-    std::process::exit(cmd.status().expect("failed to spawn").code().unwrap());
+fn raise_priority() {
+}
+
+#[cfg(windows)]
+fn print_memory() {
 }
